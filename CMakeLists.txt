@@ -31,18 +31,25 @@ set_target_properties(naive2cublas-gemm PROPERTIES
                       CUDA_SEPARABLE_COMPILATION ON)
 
 
-add_executable(gemm_test
-        tests/naive_gemm_test.cpp
-        tests/gmem_coalescing_gemm_test.cpp
-        tests/smem_caching_gemm_test.cpp
-        tests/blocking_1d_gemm_test.cpp
-        tests/blocking_2d_gemm_test.cpp
-        tests/vectorized_mem_access_gemm_test.cpp)
 
-target_link_libraries(gemm_test PRIVATE naive2cublas-gemm gtest_main)
+add_library(test_utils STATIC tests/test_utils.cpp)
+target_include_directories(test_utils PUBLIC tests)
+
+set(TEST_TARGETS
+    naive_gemm_test
+    gmem_coalescing_gemm_test
+    smem_caching_gemm_test
+    blocking_1d_gemm_test
+    blocking_2d_gemm_test
+    vectorized_mem_access_gemm_test)
 
 include(GoogleTest)
-gtest_discover_tests(gemm_test)
+foreach(TEST_NAME ${TEST_TARGETS})
+    add_executable(${TEST_NAME} tests/${TEST_NAME}.cpp)
+    target_link_libraries(${TEST_NAME} PRIVATE naive2cublas-gemm test_utils gtest_main)
+    gtest_discover_tests(${TEST_NAME})
+endforeach()
+
 
 
 
