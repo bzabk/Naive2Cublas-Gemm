@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cuda_runtime.h>
+
 namespace gemm::kernel {
 
     __global__ void naive(float const* A,float const* B, float* C,
