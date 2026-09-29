@@ -2,7 +2,7 @@
 #include <gemm_kernels.cuh>
 
 __global__ void gemm::kernel::naive(float const *A, float const *B, float *C,
-                    float const alfa, float const beta, bool const transA,
+                    float const alpha, float const beta, bool const transA,
                     bool const transB, int const result_height, int const result_width, int const common_dim) {
 
     int global_col_idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -19,6 +19,6 @@ __global__ void gemm::kernel::naive(float const *A, float const *B, float *C,
 
             result += A[a_idx] * B[b_idx];
         }
-        C[c_idx] = alfa * result + beta*C[c_idx];
+        C[c_idx] = alpha * result + beta*C[c_idx];
     }
 }

@@ -20,11 +20,10 @@ FetchContent_MakeAvailable(googletest)
 
 add_library(naive2cublas-gemm STATIC
         src/naive.cu
-        src/gmem_coalescing.cu
-        src/smem_caching.cu
-        src/blocking_1d.cu
-        src/blocking_2d.cu
-        src/vectorize_mem_access.cu)
+        src/shared_tiling.cu
+        src/thread_tiling_1d.cu
+        src/thread_tiling_2d.cu
+        src/vectorized_access.cu)
 
 target_include_directories(naive2cublas-gemm PUBLIC
         include)
@@ -41,11 +40,10 @@ target_include_directories(test_utils INTERFACE tests)
 
 set(TEST_TARGETS
     naive_gemm_test
-    gmem_coalescing_gemm_test
-    smem_caching_gemm_test
-    blocking_1d_gemm_test
-    blocking_2d_gemm_test
-    vectorized_mem_access_gemm_test)
+    shared_tiling_gemm_test
+    thread_tiling_1d_gemm_test
+    thread_tiling_2d_gemm_test
+    vectorized_access_gemm_test)
 
 file(GLOB CUDA_RUNTIME_DLLS
      "${CUDAToolkit_BIN_DIR}/cudart64_*.dll"
