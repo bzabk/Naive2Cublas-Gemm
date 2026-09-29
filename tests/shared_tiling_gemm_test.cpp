@@ -1,7 +1,7 @@
 #include <gemm_kernels.cuh>
 #include <gtest/gtest.h>
 #include <test_utils.h>
-#define BLOCK_DIM 16
+#define BLOCK_SIZE 16
 
 TEST_F(GemmTest, shared_tiling_Square_NN) {
 
@@ -9,8 +9,8 @@ TEST_F(GemmTest, shared_tiling_Square_NN) {
     Scenario& scenario = scenarios[test_idx];
 
 
-    dim3 thread_per_block(BLOCK_DIM,BLOCK_DIM);
-    dim3 blocks((scenario.N+BLOCK_DIM-1)/BLOCK_DIM,(scenario.M+BLOCK_DIM-1)/BLOCK_DIM);
+    dim3 thread_per_block(BLOCK_SIZE,BLOCK_SIZE);
+    dim3 blocks((scenario.N+BLOCK_SIZE-1)/BLOCK_SIZE,(scenario.M+BLOCK_SIZE-1)/BLOCK_SIZE);
 
 
 
@@ -25,8 +25,7 @@ TEST_F(GemmTest, shared_tiling_Square_NN) {
     cudaMemcpy(scenario.host_c,scenario.dev_c,size_c,cudaMemcpyDeviceToHost);
 
     for (int i=0;i<scenario.M*scenario.N; i++) {
-        EXPECT_NEAR(scenario.host_c[i],scenario.host_cublas_c[i], 1e-3
-);
+        EXPECT_NEAR(scenario.host_c[i],scenario.host_cublas_c[i], 1e-3);
     }
 }
 
@@ -36,8 +35,8 @@ TEST_F(GemmTest, shared_tiling_Square_TN) {
     Scenario& scenario = scenarios[test_idx];
 
 
-    dim3 thread_per_block(BLOCK_DIM,BLOCK_DIM);
-    dim3 blocks((scenario.N+BLOCK_DIM-1)/BLOCK_DIM,(scenario.M+BLOCK_DIM-1)/BLOCK_DIM);
+    dim3 thread_per_block(BLOCK_SIZE,BLOCK_SIZE);
+    dim3 blocks((scenario.N+BLOCK_SIZE-1)/BLOCK_SIZE,(scenario.M+BLOCK_SIZE-1)/BLOCK_SIZE);
 
 
 
@@ -52,8 +51,7 @@ TEST_F(GemmTest, shared_tiling_Square_TN) {
     cudaMemcpy(scenario.host_c,scenario.dev_c,size_c,cudaMemcpyDeviceToHost);
 
     for (int i=0;i<scenario.M*scenario.N; i++) {
-        EXPECT_NEAR(scenario.host_c[i],scenario.host_cublas_c[i], 1e-3
-);
+        EXPECT_NEAR(scenario.host_c[i],scenario.host_cublas_c[i], 1e-3);
     }
 
 }
@@ -64,8 +62,8 @@ TEST_F(GemmTest, shared_tiling_Square_NT) {
     Scenario& scenario = scenarios[test_idx];
 
 
-    dim3 thread_per_block(BLOCK_DIM,BLOCK_DIM);
-    dim3 blocks((scenario.N+BLOCK_DIM-1)/BLOCK_DIM,(scenario.M+BLOCK_DIM-1)/BLOCK_DIM);
+    dim3 thread_per_block(BLOCK_SIZE,BLOCK_SIZE);
+    dim3 blocks((scenario.N+BLOCK_SIZE-1)/BLOCK_SIZE,(scenario.M+BLOCK_SIZE-1)/BLOCK_SIZE);
 
 
 
@@ -80,8 +78,7 @@ TEST_F(GemmTest, shared_tiling_Square_NT) {
     cudaMemcpy(scenario.host_c,scenario.dev_c,size_c,cudaMemcpyDeviceToHost);
 
     for (int i=0;i<scenario.M*scenario.N; i++) {
-        EXPECT_NEAR(scenario.host_c[i],scenario.host_cublas_c[i], 1e-3
-);
+        EXPECT_NEAR(scenario.host_c[i],scenario.host_cublas_c[i], 1e-3);
     }
 
 }
@@ -92,8 +89,8 @@ TEST_F(GemmTest, shared_tiling_Square_TT) {
     Scenario& scenario = scenarios[test_idx];
 
 
-    dim3 thread_per_block(BLOCK_DIM,BLOCK_DIM);
-    dim3 blocks((scenario.N+BLOCK_DIM-1)/BLOCK_DIM,(scenario.M+BLOCK_DIM-1)/BLOCK_DIM);
+    dim3 thread_per_block(BLOCK_SIZE,BLOCK_SIZE);
+    dim3 blocks((scenario.N+BLOCK_SIZE-1)/BLOCK_SIZE,(scenario.M+BLOCK_SIZE-1)/BLOCK_SIZE);
 
 
 
@@ -119,8 +116,8 @@ TEST_F(GemmTest, shared_tiling_SingleRow_M1) {
     Scenario& scenario = scenarios[test_idx];
 
 
-    dim3 thread_per_block(BLOCK_DIM,BLOCK_DIM);
-    dim3 blocks((scenario.N+BLOCK_DIM-1)/BLOCK_DIM,(scenario.M+BLOCK_DIM-1)/BLOCK_DIM);
+    dim3 thread_per_block(BLOCK_SIZE,BLOCK_SIZE);
+    dim3 blocks((scenario.N+BLOCK_SIZE-1)/BLOCK_SIZE,(scenario.M+BLOCK_SIZE-1)/BLOCK_SIZE);
 
 
 
@@ -135,8 +132,7 @@ TEST_F(GemmTest, shared_tiling_SingleRow_M1) {
     cudaMemcpy(scenario.host_c,scenario.dev_c,size_c,cudaMemcpyDeviceToHost);
 
     for (int i=0;i<scenario.M*scenario.N; i++) {
-        EXPECT_NEAR(scenario.host_c[i],scenario.host_cublas_c[i], 1e-3
-);
+        EXPECT_NEAR(scenario.host_c[i],scenario.host_cublas_c[i], 1e-3);
     }
 
 }
@@ -147,8 +143,8 @@ TEST_F(GemmTest, shared_tiling_SingleColumn_N1) {
     Scenario& scenario = scenarios[test_idx];
 
 
-    dim3 thread_per_block(BLOCK_DIM,BLOCK_DIM);
-    dim3 blocks((scenario.N+BLOCK_DIM-1)/BLOCK_DIM,(scenario.M+BLOCK_DIM-1)/BLOCK_DIM);
+    dim3 thread_per_block(BLOCK_SIZE,BLOCK_SIZE);
+    dim3 blocks((scenario.N+BLOCK_SIZE-1)/BLOCK_SIZE,(scenario.M+BLOCK_SIZE-1)/BLOCK_SIZE);
 
 
 
@@ -163,8 +159,7 @@ TEST_F(GemmTest, shared_tiling_SingleColumn_N1) {
     cudaMemcpy(scenario.host_c,scenario.dev_c,size_c,cudaMemcpyDeviceToHost);
 
     for (int i=0;i<scenario.M*scenario.N; i++) {
-        EXPECT_NEAR(scenario.host_c[i],scenario.host_cublas_c[i], 1e-3
-);
+        EXPECT_NEAR(scenario.host_c[i],scenario.host_cublas_c[i], 1e-3);
     }
 
 }
@@ -175,8 +170,8 @@ TEST_F(GemmTest, shared_tiling_AlphaBetaScaling) {
     Scenario& scenario = scenarios[test_idx];
 
 
-    dim3 thread_per_block(BLOCK_DIM,BLOCK_DIM);
-    dim3 blocks((scenario.N+BLOCK_DIM-1)/BLOCK_DIM,(scenario.M+BLOCK_DIM-1)/BLOCK_DIM);
+    dim3 thread_per_block(BLOCK_SIZE,BLOCK_SIZE);
+    dim3 blocks((scenario.N+BLOCK_SIZE-1)/BLOCK_SIZE,(scenario.M+BLOCK_SIZE-1)/BLOCK_SIZE);
 
 
 
@@ -191,8 +186,7 @@ TEST_F(GemmTest, shared_tiling_AlphaBetaScaling) {
     cudaMemcpy(scenario.host_c,scenario.dev_c,size_c,cudaMemcpyDeviceToHost);
 
     for (int i=0;i<scenario.M*scenario.N; i++) {
-        EXPECT_NEAR(scenario.host_c[i],scenario.host_cublas_c[i], 1e-3
-);
+        EXPECT_NEAR(scenario.host_c[i],scenario.host_cublas_c[i], 1e-3);
     }
 
 }
