@@ -6,11 +6,11 @@ __global__ void gemm::kernel::thread_tiling_1d(float const *A, float const *B, f
     float const alpha, float const beta, bool const transA,
     bool const transB, int const result_height, int const result_width, int const common_dim) {
 
-    int thread_x = threadIdx.x;
-    int thread_y = threadIdx.y;
+    int const thread_x = threadIdx.x;
+    int const thread_y = threadIdx.y;
 
-    int col = blockDim.x * blockIdx.x + threadIdx.x;
-    int row = blockDim.y * (blockIdx.y*THREAD_MULTIPLIER_Y) + threadIdx.y;
+    int const col = blockDim.x * blockIdx.x + threadIdx.x;
+    int const row = blockDim.y * (blockIdx.y*THREAD_MULTIPLIER_Y) + threadIdx.y;
 
     __shared__ float submatrix_A[BLOCK_SIZE*THREAD_MULTIPLIER_Y][BLOCK_SIZE];
     __shared__ float submatrix_B[BLOCK_SIZE][BLOCK_SIZE];

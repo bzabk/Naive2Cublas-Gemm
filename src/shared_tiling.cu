@@ -7,11 +7,11 @@ __global__ void gemm::kernel::shared_tiling(float const *A, float const *B, floa
     int const result_height, int const result_width, int const common_dim) {
 
 
-    int col = blockIdx.x*blockDim.x + threadIdx.x;
-    int row = blockIdx.y*blockDim.y + threadIdx.y;
+    int const col = blockIdx.x*blockDim.x + threadIdx.x;
+    int const row = blockIdx.y*blockDim.y + threadIdx.y;
 
-    int thread_x = threadIdx.x;
-    int thread_y = threadIdx.y;
+    int const thread_x = threadIdx.x;
+    int const thread_y = threadIdx.y;
 
     __shared__ float submatrix_A[BLOCK_SIZE][BLOCK_SIZE];
     __shared__ float submatrix_B[BLOCK_SIZE][BLOCK_SIZE];

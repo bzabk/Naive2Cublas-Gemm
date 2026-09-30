@@ -3,67 +3,88 @@
 #define THREAD_MULTIPLIER_Y 4
 #define THREAD_MULTIPLIER_X 4
 
-__global__ void gemm::kernel::thread_tiling_2d(float const *A, float const *B, float *C,
-    float const alpha, float const beta, bool const transA, bool const transB,
-    int const result_height, int const result_width, int const common_dim) {
-
-    int col = blockIdx.x*blockDim.x*THREAD_MULTIPLIER_X + threadIdx.x;
-    int row = blockIdx.y*blockDim.y*THREAD_MULTIPLIER_Y + threadIdx.y;
-
-    int thread_x = threadIdx.x;
-    int thread_y = threadIdx.y;
-
-    __shared__ float submatrix_A[BLOCK_SIZE*THREAD_MULTIPLIER_Y][BLOCK_SIZE];
-    __shared__ float submatrix_B[BLOCK_SIZE][BLOCK_SIZE*THREAD_MULTIPLIER_X];
-
-    float accum[THREAD_MULTIPLIER_Y][THREAD_MULTIPLIER_X] = {0.0f};
+__global__ void gemm::kernel::thread_tiling_2d(float const* A,float const* B, float* C,
+                                        float const alpha, float const beta,
+                                        bool const transA, bool const transB,
+                                        int const result_height, int const result_width, int const common_dim) {
 
 
-    for (int i=0;i<common_dim;i+=BLOCK_SIZE) {
 
-        for (int j=0;j<THREAD_MULTIPLIER_Y;j++) {
-            if ((row+j*BLOCK_SIZE)<result_height && (i+thread_x)<common_dim) {
-                int a_idx = transA ? result_height*(i+thread_x) + row+j*BLOCK_SIZE : common_dim*(row+j*BLOCK_SIZE)+i+thread_x;
-                submatrix_A[thread_y+j*BLOCK_SIZE][thread_x] = A[a_idx];
+    int const tileCol = threadIdx.x;
+    int const tileRow = threadIdx.y;
+
+    int const row = blockIdx.y*blockDim.y*THREAD_MULTIPLIER_X+threadIdx.y;
+    int const col = blockIdx.x*blockDim.x*THREAD_MULTIPLIER_Y+threadIdx.x;
+
+    __shared__ float A_shared_block[THREAD_MULTIPLIER_X*BLOCK_SIZE][BLOCK_SIZE];
+    __shared__ float B_shared_block[BLOCK_SIZE][BLOCK_SIZE*THREAD_MULTIPLIER_Y];
+
+    float regA[THREAD_MULTIPLIER_X] = {0.0f};
+    float regB[THREAD_MULTIPLIER_Y] = {0.0f};
+    float local_results[THREAD_MULTIPLIER_X][THREAD_MULTIPLIER_Y] = {0.0f};
+
+    for (int k=0;k<common_dim;k+=BLOCK_SIZE) {
+
+
+        for (int i=0;i<THREAD_MULTIPLIER_X;i++) {
+            int local_row = row + i*BLOCK_SIZE;
+            if (local_row< result_height &&  k+tileCol<common_dim) {
+                int a_idx = transA ? result_height*(k+tileCol)+local_row : common_dim*local_row+k+tileCol;
+                A_shared_block[tileRow+i*BLOCK_SIZE][tileCol] = A[a_idx];
             }else {
-                submatrix_A[thread_y+j*BLOCK_SIZE][thread_x] = 0.0f;
+                A_shared_block[tileRow+i*BLOCK_SIZE][tileCol] = 0.0f;
             }
         }
 
-        for (int j=0;j<THREAD_MULTIPLIER_X;j++) {
-           if ((j*BLOCK_SIZE+col)<result_width && (i+thread_y)<common_dim) {
-               int b_idx = transB ? common_dim*(j*BLOCK_SIZE+col)+i+thread_y : result_width*(i+thread_y)+j*BLOCK_SIZE+col;
-               submatrix_B[thread_y][j*BLOCK_SIZE+thread_x] = B[b_idx];
-           }else {
-               submatrix_B[thread_y][j*BLOCK_SIZE+thread_x] = 0.0f;
-           }
+        for (int i=0;i<THREAD_MULTIPLIER_Y;i++) {
+            int local_col = col+i*BLOCK_SIZE;
+            if ((k+tileRow)<common_dim && local_col<result_width) {
+                int b_idx = transB ? common_dim*local_col+k+tileRow : result_width*(k+tileRow)+local_col;
+                B_shared_block[tileRow][tileCol+i*BLOCK_SIZE] = B[b_idx];
+            }else {
+                B_shared_block[tileRow][tileCol+i*BLOCK_SIZE] = 0.0f;
+            }
         }
 
         __syncthreads();
+
         #pragma unroll
-        for (int l=0;l<BLOCK_SIZE;l++) {
+        for (int kk=0;kk<BLOCK_SIZE;kk++) {
+
             #pragma unroll
-            for (int i=0;i<THREAD_MULTIPLIER_Y;i++) {
+            for (int m=0;m<THREAD_MULTIPLIER_X;m++) {
+                regA[m] = A_shared_block[tileRow+m*BLOCK_SIZE][kk];
+            }
+
+            #pragma unroll
+            for (int n=0;n<THREAD_MULTIPLIER_Y;n++) {
+                regB[n] = B_shared_block[kk][tileCol+n*BLOCK_SIZE];
+            }
+
+            #pragma unroll
+            for (int m=0;m<THREAD_MULTIPLIER_X;m++) {
                 #pragma unroll
-                for (int j=0;j<THREAD_MULTIPLIER_X;j++) {
-                    accum[i][j] += submatrix_A[i*BLOCK_SIZE+thread_y][l] * submatrix_B[l][j*BLOCK_SIZE+thread_x];
+                for (int n=0;n<THREAD_MULTIPLIER_Y;n++) {
+                    local_results[m][n] += regA[m]*regB[n];
                 }
             }
         }
+
         __syncthreads();
+
     }
 
     #pragma unroll
-    for (int i=0;i<THREAD_MULTIPLIER_Y;i++) {
+    for (int m=0;m<THREAD_MULTIPLIER_X;m++) {
+
         #pragma unroll
-        for (int j=0;j<THREAD_MULTIPLIER_X;j++) {
-            if ((row+i*BLOCK_SIZE)<result_height && (col+j*BLOCK_SIZE)<result_width) {
-                int c_idx = result_width*(row+i*BLOCK_SIZE)+(col+j*BLOCK_SIZE);
-                C[c_idx] = alpha*accum[i][j]+beta*C[c_idx];
+        for (int n=0;n<THREAD_MULTIPLIER_Y;n++) {
+            int out_row = row+m*BLOCK_SIZE;
+            int out_col = col+n*BLOCK_SIZE;
+            if (out_row<result_height && out_col<result_width) {
+                int c_idx = result_width*out_row+out_col;
+                C[c_idx] = alpha*local_results[m][n]+beta*C[c_idx];
             }
         }
     }
-
-
-
 }
