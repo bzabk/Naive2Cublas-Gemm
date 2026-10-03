@@ -1,7 +1,7 @@
 #include <gemm_kernels.cuh>
 #include <gtest/gtest.h>
 #include <test_utils.h>
-#define BLOCK_SIZE 16
+constexpr int BLOCK_SIZE = 16;
 
 
 TEST_P(GemmTest,ThreadTiling1D) {
