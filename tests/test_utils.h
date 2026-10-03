@@ -4,6 +4,25 @@
 #include <algorithm>
 #include <cublas_v2.h>
 
+// for critical section
+#define CUDA_ASSERT(call) do { \
+    cudaError_t err = call; \
+        ASSERT_EQ(err, cudaSuccess) \
+            << "CRITICAL CUDA Error at " << __FILE__ << ":" << __LINE__ << "\n" \
+        << "Call: " << #call << "\n" \
+    << "Error: " << cudaGetErrorString(err); \
+} while(0)
+
+// for tests
+#define CUDA_EXPECT(call) do { \
+    cudaError_t err = call; \
+        EXPECT_EQ(err, cudaSuccess) \
+            << "CUDA Error at " << __FILE__ << ":" << __LINE__ << "\n" \
+        << "Call: " << #call << "\n" \
+    << "Error: " << cudaGetErrorString(err); \
+} while(0)
+
+
 struct Scenario {
     int M;
     int N;
@@ -12,115 +31,100 @@ struct Scenario {
     float beta;
     bool transA;
     bool transB;
-
-    float* host_a;
-    float* host_b;
-    float* host_c;
-    float* host_cublas_c;
-
-    float* dev_a;
-    float* dev_b;
-    float* dev_c;
-    float* dev_cublas_c;
 };
 
-
-
-class GemmTest : public::testing::Test {
+class GemmTest : public::testing::TestWithParam<Scenario> {
 protected:
+    cublasHandle_t handle = nullptr;
 
-    inline static Scenario scenarios[7] = {
-        {1024, 1024, 1024, 1.0f, 0.0f, false, false},
-        {1024, 1024, 1024, 1.0f, 0.0f, true,  false},
-        {1024, 1024, 1024, 1.0f, 0.0f, false, true },
-        {1024, 1024, 1024, 1.0f, 0.0f, true,  true },
-        {1,    1024, 1024, 1.0f, 0.0f, false, false},
-        {1024, 1,    1024, 1.0f, 0.0f, false, false},
-        {1024, 1024, 1024, 2.5f, 1.5f, false, false}
-    };
+    float* host_a = nullptr;
+    float* host_b = nullptr;
+    float* host_c = nullptr;
+    float* host_cublas_c = nullptr;
 
+    float* dev_a = nullptr;
+    float* dev_b = nullptr;
+    float* dev_c = nullptr;
+    float* dev_cublas_c = nullptr;
 
+    void SetUp() override {
 
-    static void SetUpTestSuite() {
-
-        cublasHandle_t handle;
+        Scenario scenario = GetParam();
+        
         cublasCreate(&handle);
 
+        int common_dim = scenario.K;
 
-        for (int i = 0; i < 7; i++) {
+        int count_a = scenario.M*common_dim;
+        int count_b = common_dim*scenario.N;
+        int count_c = scenario.M*scenario.N;
 
-            auto& scenario = scenarios[i];
+        size_t size_a = count_a*sizeof(float);
+        size_t size_b = count_b*sizeof(float);
+        size_t size_c = count_c*sizeof(float);
 
-            int common_dim = scenario.K;
+        host_a = new float[count_a];
+        host_b = new float[count_b];
+        host_c = new float[count_c];
 
-            int count_a = scenario.M*common_dim;
-            int count_b = common_dim*scenario.N;
-            int count_c = scenario.M*scenario.N;
+        host_cublas_c = new float[count_c];
 
-            size_t size_a = count_a*sizeof(float);
-            size_t size_b = count_b*sizeof(float);
-            size_t size_c = count_c*sizeof(float);
+        std::generate(host_a, host_a + count_a, []() {
+            return static_cast<float>(rand()) / RAND_MAX;
+        });
+        std::generate(host_b, host_b + count_b, []() {
+            return static_cast<float>(rand()) / RAND_MAX;
+        });
+        std::fill(host_c, host_c + count_c, 0.0f);
+        std::fill(host_cublas_c, host_cublas_c + count_c, 0.0f);
 
-            scenario.host_a = new float[count_a];
-            scenario.host_b = new float[count_b];
-            scenario.host_c = new float[count_c];
+        CUDA_ASSERT(cudaMalloc(&dev_a, size_a));
+        CUDA_ASSERT(cudaMalloc(&dev_b, size_b));
+        CUDA_ASSERT(cudaMalloc(&dev_c, size_c));
+        CUDA_ASSERT(cudaMalloc(&dev_cublas_c, size_c));
 
-            scenario.host_cublas_c = new float[count_c];
+        CUDA_ASSERT(cudaMemcpy(dev_a,host_a,size_a,cudaMemcpyHostToDevice));
+        CUDA_ASSERT(cudaMemcpy(dev_b,host_b,size_b,cudaMemcpyHostToDevice));
+        CUDA_ASSERT(cudaMemcpy(dev_c,host_c,size_c,cudaMemcpyHostToDevice));
+        CUDA_ASSERT(cudaMemcpy(dev_cublas_c,host_cublas_c,size_c,cudaMemcpyHostToDevice));
 
-            std::generate(scenario.host_a, scenario.host_a + count_a, []() {
-                return static_cast<float>(rand()) / RAND_MAX;
-            });
-            std::generate(scenario.host_b, scenario.host_b + count_b, []() {
-                return static_cast<float>(rand()) / RAND_MAX;
-            });
-            std::fill(scenario.host_c, scenario.host_c + count_c, 0.0f);
-            std::fill(scenario.host_cublas_c, scenario.host_cublas_c + count_c, 0.0f);
+        cublasOperation_t opB = scenario.transB ? CUBLAS_OP_T : CUBLAS_OP_N;
+        cublasOperation_t opA = scenario.transA ? CUBLAS_OP_T : CUBLAS_OP_N;
 
-            cudaMalloc(&scenario.dev_a, size_a);
-            cudaMalloc(&scenario.dev_b, size_b);
-            cudaMalloc(&scenario.dev_c, size_c);
-            cudaMalloc(&scenario.dev_cublas_c, size_c);
+        int ldb = scenario.transB ? scenario.K : scenario.N;
+        int lda = scenario.transA ? scenario.M : scenario.K;
 
-            cudaMemcpy(scenario.dev_a,scenario.host_a,size_a,cudaMemcpyHostToDevice);
-            cudaMemcpy(scenario.dev_b,scenario.host_b,size_b,cudaMemcpyHostToDevice);
-            cudaMemcpy(scenario.dev_c,scenario.host_c,size_c,cudaMemcpyHostToDevice);
-            cudaMemcpy(scenario.dev_cublas_c,scenario.host_cublas_c,size_c,cudaMemcpyHostToDevice);
+        cublasSgemm(handle, opB, opA,
+                    scenario.N, scenario.M, scenario.K,
+                    &scenario.alpha,
+                    dev_b, ldb,
+                    dev_a, lda,
+                    &scenario.beta,
+                    dev_cublas_c, scenario.N);
 
-            cublasOperation_t opB = scenario.transB ? CUBLAS_OP_T : CUBLAS_OP_N;
-            cublasOperation_t opA = scenario.transA ? CUBLAS_OP_T : CUBLAS_OP_N;
-
-            int ldb = scenario.transB ? scenario.K : scenario.N;
-            int lda = scenario.transA ? scenario.M : scenario.K;
-
-            cublasSgemm(handle, opB, opA,
-                        scenario.N, scenario.M, scenario.K,
-                        &scenario.alpha,
-                        scenario.dev_b, ldb,
-                        scenario.dev_a, lda,
-                        &scenario.beta,
-                        scenario.dev_cublas_c, scenario.N);
-
-            cudaMemcpy(scenario.host_cublas_c, scenario.dev_cublas_c, size_c, cudaMemcpyDeviceToHost);
+        CUDA_ASSERT(cudaMemcpy(host_cublas_c, dev_cublas_c, size_c, cudaMemcpyDeviceToHost));
 
 
-        }
+    }
+
+    void TearDown() override {
+
+        delete[] host_a;
+        delete[] host_b;
+        delete[] host_c;
+        delete[] host_cublas_c;
+
 
         cublasDestroy(handle);
 
-    }
-
-    static void TearDownTestSuite() {
-        for (int i=0;i<7;i++) {
-            delete[] scenarios[i].host_a;
-            delete[] scenarios[i].host_b;
-            delete[] scenarios[i].host_c;
-            delete[] scenarios[i].host_cublas_c;
-
-            cudaFree(scenarios[i].dev_a);
-            cudaFree(scenarios[i].dev_b);
-            cudaFree(scenarios[i].dev_c);
-            cudaFree(scenarios[i].dev_cublas_c);
-        }
+        cudaFree(dev_a);
+        cudaFree(dev_b);
+        cudaFree(dev_c);
+        cudaFree(dev_cublas_c);
     }
 
 };
+
+
+
+

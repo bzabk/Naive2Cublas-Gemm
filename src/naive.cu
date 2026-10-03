@@ -2,7 +2,7 @@
 #include <gemm_kernels.cuh>
 
 
-__global__ void naive(float const* __restrict__ A, float const* __restrict__ B, float* __restrict__ C,
+__global__ void gemm::kernel::naive(float const* __restrict__ A, float const* __restrict__ B, float* __restrict__ C,
     float const alpha, float const beta, bool const transA,
     bool const transB, int const result_height, int const result_width, int const common_dim) {
 
