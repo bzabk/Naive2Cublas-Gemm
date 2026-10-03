@@ -1,24 +1,27 @@
 #include <cuda_runtime.h>
 #include <gemm_kernels.cuh>
 
-__global__ void gemm::kernel::naive(float const *A, float const *B, float *C,
-                    float const alpha, float const beta, bool const transA,
-                    bool const transB, int const result_height, int const result_width, int const common_dim) {
 
-    int const global_col_idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int const global_row_idx = blockIdx.y * blockDim.y + threadIdx.y;
+__global__ void naive(float const* __restrict__ A, float const* __restrict__ B, float* __restrict__ C,
+    float const alpha, float const beta, bool const transA,
+    bool const transB, int const result_height, int const result_width, int const common_dim) {
 
-    float result = 0.0f;
-    if(global_col_idx < result_width && global_row_idx < result_height) {
-        int const c_idx = result_width*global_row_idx+global_col_idx;
-        for (int i=0; i<common_dim;i++) {
+    int const row = blockIdx.y * blockDim.y + threadIdx.y;
+    int const col = blockIdx.x * blockDim.x + threadIdx.x;
 
-            int const a_idx = transA ? result_height*i+global_row_idx : common_dim*global_row_idx + i;
-            int const b_idx = transB ? common_dim*global_col_idx+i : result_width*i + global_col_idx;
+    float local_result = 0.0f;
+    if(col < result_width && row < result_height) {
+        int const c_idx = result_width*row+col;
+        for (int k=0; k<common_dim;k++) {
+
+            int const a_idx = transA ? result_height*k+row : common_dim*row + k;
+            int const b_idx = transB ? common_dim*col+k : result_width*k + col;
 
 
-            result += A[a_idx] * B[b_idx];
+            local_result += A[a_idx] * B[b_idx];
         }
-        C[c_idx] = alpha * result + beta*C[c_idx];
+        C[c_idx] = alpha * local_result + beta*C[c_idx];
     }
 }
+
+
